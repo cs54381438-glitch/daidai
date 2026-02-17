@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>魂氣統計計算機 (完整儲存版)</title>
+    <style>
+        :root { --choco: #5d4037; --accent: #ff9800; --bg: #fdfaf6; --blue: #0277bd; }
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background-color: var(--bg); display: flex; justify-content: center; padding: 20px; color: #333; }
+        .container { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 450px; }
+        
+        /* 巧克力輸入區 */
+        .header { background: var(--choco); color: white; padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 20px; }
+        .header label { font-size: 0.9rem; opacity: 0.9; display: block; margin-bottom: 5px; }
+        .choco-input { background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); color: #ffccbc; font-size: 2rem; font-weight: bold; text-align: center; width: 85%; border-radius: 10px; outline: none; }
+
+        /* 魂氣方塊 */
+        .soul-box { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border: 2px solid #eee; border-radius: 12px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
+        .soul-box:hover { border-color: var(--accent); background: #fffcf5; }
+        .soul-box:active { transform: scale(0.97); }
+        .count-tag { background: var(--accent); color: white; padding: 2px 12px; border-radius: 10px; font-weight: bold; }
+
+        /* 統計區塊 */
+        .stats-panel { margin-top: 25px; padding: 15px; background: #f8f9fa; border-radius: 15px; border-left: 5px solid var(--blue); }
+        .stats-title { font-weight: bold; margin-bottom: 10px; display: block; color: var(--blue); font-size: 1.1rem; }
+        .stat-line { display: flex; justify-content: space-between; font-size: 0.95rem; margin-bottom: 6px; }
+        .probability { color: var(--blue); font-weight: bold; }
+        
+        .total-info { border-top: 2px solid #dee2e6; margin-top: 12px; padding-top: 12px; }
+        .highlight-total { font-size: 1.2rem; color: #d32f2f; font-weight: bold; }
+
+        /* 功能按鈕 */
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .btn { padding: 12px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-reset { background: #e0e0e0; color: #666; }
+        .btn-clear { background: #ff5252; color: white; }
+        .btn:hover { opacity: 0.8; }
+    </style>
+</head>
+<body onload="loadData()">
+
+<div class="container">
+    <div class="header">
+        <label>🍫 剩餘巧克力總數 (可點擊修改)：</label>
+        <input type="number" id="chocoInput" class="choco-input" value="100" onchange="saveData()">
+    </div>
+
+    <div id="soulContainer">
+        <div class="soul-box" onclick="handleAction(500, 's500')">
+            <span>魂氣 500 <small>(扣3🍫)</small></span>
+            <span class="count-tag" id="s500">0次</span>
+        </div>
+        <div class="soul-box" onclick="handleAction(1000, 's1000')">
+            <span>魂氣 1000 <small>(扣3🍫)</small></span>
+            <span class="count-tag" id="s1000">0次</span>
+        </div>
+        <div class="soul-box" onclick="handleAction(2500, 's2500')">
+            <span>魂氣 2500 <small>(扣3🍫)</small></span>
+            <span class="count-tag" id="s2500">0次</span>
+        </div>
+        <div class="soul-box" onclick="handleAction(5000, 's5000')">
+            <span>魂氣 5000 <small>(扣3🍫)</small></span>
+            <span class="count-tag" id="s5000">0次</span>
+        </div>
+        <div class="soul-box" onclick="handleAction(10000, 's10000')">
+            <span>魂氣 10000 <small>(扣3🍫)</small></span>
+            <span class="count-tag" id="s10000">0次</span>
+        </div>
+    </div>
+
+    <div class="stats-panel">
+        <span class="stats-title">📊 數據分析與機率</span>
+        <div id="probList">
+            <div class="stat-line">尚未有點擊紀錄</div>
+        </div>
+        
+        <div class="total-info">
+            <div class="stat-line">總點擊次數：<span id="totalClicks" style="font-weight:bold;">0</span> 次</div>
+            <div class="stat-line">
+                <span>累計魂氣總量：</span>
+                <span id="totalSoulSum" class="highlight-total">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn btn-reset" onclick="resetCountsOnly()">僅次數歸零</button>
+        <button class="btn btn-clear" onclick="clearAllData()">全部重設(含巧克力)</button>
+    </div>
+</div>
+
+<script>
+    // 預設狀態
+    let state = {
+        choco: 100,
+        totalClicks: 0,
+        totalSoulSum: 0,
+        counts: { 500: 0, 1000: 0, 2500: 0, 5000: 0, 10000: 0 }
+    };
+
+    // 處理方塊點擊
+    function handleAction(soulValue, id) {
+        const inputField = document.getElementById('chocoInput');
+        state.choco = parseInt(inputField.value) || 0;
+
+        if (state.choco >= 3) {
+            // 運算邏輯
+            state.choco -= 3;
+            state.totalClicks++;
+            state.totalSoulSum += soulValue;
+            state.counts[soulValue]++;
+            
+            // 更新並儲存
+            updateUI();
+            saveData();
+        } else {
+            alert("巧克力不足！點擊需要 3 顆巧克力。");
+        }
+    }
+
+    // 更新介面
+    function updateUI() {
+        document.getElementById('chocoInput').value = state.choco;
+        document.getElementById('totalClicks').innerText = state.totalClicks;
+        document.getElementById('totalSoulSum').innerText = state.totalSoulSum.toLocaleString(); // 加上千分位符號
+
+        const probList = document.getElementById('probList');
+        probList.innerHTML = "";
+
+        for (let key in state.counts) {
+            // 更新方塊上的次數
+            document.getElementById('s' + key).innerText = state.counts[key] + "次";
+            
+            // 更新機率列表
+            let percent = state.totalClicks > 0 ? ((state.counts[key] / state.totalClicks) * 100).toFixed(1) : 0;
+            probList.innerHTML += `
+                <div class="stat-line">
+                    <span>魂氣 ${key}：</span>
+                    <span class="probability">${percent}%</span>
+                </div>`;
+        }
+    }
+
+    // 儲存資料
+    function saveData() {
+        state.choco = parseInt(document.getElementById('chocoInput').value) || 0;
+        localStorage.setItem('gameSoulData_v2', JSON.stringify(state));
+    }
+
+    // 讀取資料
+    function loadData() {
+        const saved = localStorage.getItem('gameSoulData_v2');
+        if (saved) {
+            state = JSON.parse(saved);
+            updateUI();
+        }
+    }
+
+    // 僅歸零計數器 (保留巧克力餘額)
+    function resetCountsOnly() {
+        if(confirm("確定要重設所有統計次數與魂氣總和嗎？(會保留巧克力餘額)")) {
+            state.totalClicks = 0;
+            state.totalSoulSum = 0;
+            for(let key in state.counts) state.counts[key] = 0;
+            updateUI();
+            saveData();
+        }
+    }
+
+    // 全部重設
+    function clearAllData() {
+        if (confirm("確定要清空所有資料(包含巧克力)嗎？")) {
+            localStorage.removeItem('gameSoulData_v2');
+            location.reload();
+        }
+    }
+</script>
+
+</body>
+</html>
